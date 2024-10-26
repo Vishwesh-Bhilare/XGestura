@@ -82,6 +82,14 @@ The idea behind XGestura is to bridge the gap between physical actions and digit
 
 ### Installation
 
+#### You'll need:
+
+Python libraries: pyserial to communicate with the HC-05 over Bluetooth and pyautogui to control the keyboard.
+Install dependencies with:
+```
+pip install pyserial pyautogui
+```
+
 1. **Hardware Setup**: 
    - Connect the MPU6050 to the Arduino using I2C.
    - Connect the HC-05 to the Arduino for Bluetooth communication.
