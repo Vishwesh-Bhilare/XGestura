@@ -2,10 +2,10 @@ import serial
 import pyautogui
 import time
 
-# Set up the serial connection (replace 'COMX' with your actual COM port, and set the baud rate to 9600)
+# set up the serial connection
 ser = serial.Serial('COM7', 9600, timeout=1)  # Adjust 'COMX' to your specific HC-05 port
 
-# Thresholds for detecting left or right gestures
+# thresholds
 left_threshold = -5.0  # Adjust based on MPU6050 sensitivity and readings
 right_threshold = 5.0
 
@@ -15,7 +15,7 @@ def interpret_gesture(data):
     Returns 'next' for right movement, 'previous' for left movement, or None if no significant movement.
     """
     try:
-        lines = data.splitlines()  # Separate data into lines
+        lines = data.splitlines()  # separate data into lines
         for line in lines:
             if "Accel X:" in line:
                 # Extract X-axis acceleration value
