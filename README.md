@@ -1,111 +1,169 @@
-# XGestura
+# XGestura: Gesture Recognition with ESP32
 
-## Overview
+A hardware-based gesture recognition system using ESP32, MPU6050 accelerometer/gyroscope, and OLED display. Recognizes hand gestures without computer vision.
 
-XGestura is an innovative project that transforms hand movements into digital inputs using an Arduino-mounted glove equipped with an MPU6050 motion sensor and an HC-05 Bluetooth module. This allows users to control mouse movements and keyboard actions simply by moving their hands, creating a seamless interaction experience for various applications.
+![Gesture Recognition](https://img.shields.io/badge/Project-Gesture_Recognition-blue)
+![ESP32](https://img.shields.io/badge/Platform-ESP32-green)
+![Arduino](https://img.shields.io/badge/Framework-Arduino-orange)
 
-## Features
+## 📋 Project Overview
 
-- **Two Modes of Operation**:
-  - **Mouse Control**: Maps glove movements to mouse movements.
-  - **Keyboard Control**: Maps sensor inputs to WASD keys for game control.
-  
-- **Wireless Communication**: Utilizes Bluetooth for real-time data transmission.
+This project demonstrates real-time gesture recognition using inertial sensors. The system detects various hand gestures based on motion patterns and displays the results on an OLED screen.
 
-## How It Works
+### Features
+- ✅ Real-time orientation tracking (Pitch & Roll)
+- ✅ Circular gesture detection (clockwise/counter-clockwise)
+- ✅ Flick gesture detection (forward/backward/left/right)
+- ✅ OLED display feedback
+- ✅ No computer vision required
+- ✅ Simple hardware setup
 
-### Components
+## 🛠 Hardware Requirements
 
-- **Arduino**: Acts as the main microcontroller, processing sensor data.
-- **MPU6050**: A 6-axis motion sensor that captures the orientation and movement of the glove.
-- **HC-05 Bluetooth Module**: Enables wireless communication with a connected device (like a computer).
+| Component | Quantity | Notes |
+|-----------|----------|-------|
+| ESP32 DevKit V1 | 1 | Main microcontroller |
+| MPU6050 Module | 1 | Accelerometer + Gyroscope |
+| OLED Display (SSD1306) | 1 | 128x64 I2C display |
+| Breadboard | 1 | For connections |
+| Jumper Wires | Several | Male-to-Male |
 
-### Mode 1: Mouse Control
+## 🔌 Wiring Connections
 
-1. **Sensor Input**: The MPU6050 captures the tilt and orientation of the glove.
-2. **Data Processing**: The Arduino processes this data and converts it into corresponding mouse movements.
-3. **Output**: The movement is transmitted via the HC-05 Bluetooth module to a computer, where a Python script translates the data into mouse actions.
+### ESP32 to MPU6050 & OLED
 
-### Mode 2: Keyboard Control
+| ESP32 Pin | MPU6050 Pin | OLED Pin |
+|-----------|-------------|----------|
+| 3.3V      | VCC         | VDD      |
+| GND       | GND         | GND      |
+| GPIO 22   | SCL         | SCK      |
+| GPIO 21   | SDA         | SDA      |
 
-1. **Sensor Input**: Similar to the mouse control mode, the MPU6050 captures glove movements.
-2. **Data Mapping**: The Arduino processes the data to map specific movements to WASD key presses.
-3. **Output**: The HC-05 sends this data to the computer, where a different Python script interprets the movements as keyboard inputs.
+**Note:** Both modules share the same I2C bus.
 
-## Working
+## 📦 Software Requirements
 
-### MPU6050
+- Arduino IDE
+- ESP32 Board Support
+- Required Libraries:
+  - `Wire.h` (I2C communication)
+  - `Adafruit_GFX.h` (Graphics library)
+  - `Adafruit_SSD1306.h` (OLED display)
+  - `MPU6050.h` (MPU6050 sensor)
+  - `MadgwickAHRS.h` (Sensor fusion)
 
-The MPU6050 is a 6-axis motion sensor that combines a 3-axis gyroscope and a 3-axis accelerometer. Here’s how it works:
+## 🚀 Installation & Setup
 
-1. **Accelerometer**: Measures acceleration along the X, Y, and Z axes. The values represent the force exerted on the sensor due to movement and gravity, expressed in g (gravitational units).
-   - **X-axis**: Measures side-to-side movements.
-   - **Y-axis**: Measures forward and backward movements.
-   - **Z-axis**: Measures vertical movements.
+### 1. Install Arduino IDE
+Download and install Arduino IDE from [arduino.cc](https://www.arduino.cc/en/software)
 
-   When you tilt your hand, the accelerometer captures changes in these values, providing data on the angle and direction of movement.
+### 2. Install ESP32 Board Support
+1. Open Arduino IDE
+2. Go to `File > Preferences`
+3. Add to Additional Boards Manager URLs:
 
-2. **Gyroscope**: Measures the rate of rotation around each axis (X, Y, and Z), providing angular velocity. This data helps in determining the orientation of the glove over time.
-
-3. **Data Fusion**: By combining data from both sensors using algorithms (like a complementary or Kalman filter), the Arduino calculates the glove's orientation and movement accurately.
-
-### HC-05 Bluetooth Module
-
-The HC-05 is a Bluetooth module that allows for wireless communication between devices. Here’s how it works in the context of XGestura:
-
-1. **Communication Protocol**: The HC-05 uses the Serial Port Profile (SPP) to establish a connection with a computer or other Bluetooth-enabled devices. This protocol allows for data transmission similar to a serial cable.
-
-2. **Pairing**: Before data can be sent, the HC-05 must be paired with the computer. This usually involves entering a PIN (default is often "1234" or "0000").
-
-3. **Data Transmission**: Once paired, the HC-05 transmits the processed data from the Arduino (mouse or keyboard commands) wirelessly to the computer. The computer, running a Python script, interprets these signals to perform actions like moving the cursor or pressing keys.
-
-## Applications
-
-- **Gaming**: Control game characters with natural hand movements, enhancing the gaming experience.
-- **Accessibility**: Provide an alternative input method for individuals with mobility impairments.
-- **Virtual Reality**: Enhance VR environments by translating real-world movements into virtual actions.
-- **Robotics**: Use hand gestures to control robotic systems wirelessly.
-
-## Concept
-
-The idea behind XGestura is to bridge the gap between physical actions and digital responses. By leveraging motion sensing technology, we can create a more intuitive way to interact with computers, games, and virtual environments. This project demonstrates the potential of combining hardware and software to innovate user interfaces.
-
-## Getting Started
-
-### Prerequisites
-
-- Arduino board (e.g., Arduino Uno)
-- MPU6050 sensor
-- HC-05 Bluetooth module
-- Jumper wires
-- Python (with PyBluez library for Bluetooth communication)
-
-### Installation
-
-#### You'll need:
-
-Python libraries: pyserial to communicate with the HC-05 over Bluetooth and pyautogui to control the keyboard.
-Install dependencies with:
-```
-pip install pyserial pyautogui
+```bash
+https://dl.espressif.com/dl/package_esp32_index.json
 ```
 
-1. **Hardware Setup**: 
-   - Connect the MPU6050 to the Arduino using I2C.
-   - Connect the HC-05 to the Arduino for Bluetooth communication.
+4. Go to `Tools > Board > Boards Manager`
+5. Search for "ESP32" and install
 
-2. **Arduino Code**: Upload the provided Arduino sketch to configure the MPU6050 and HC-05.
+### 3. Install Required Libraries
+Open Arduino IDE and install these libraries via Library Manager:
+- **Adafruit GFX Library**
+- **Adafruit SSD1306**
+- **MPU6050** by Electronic Cats
+- **MadgwickAHRS**
 
-3. **Python Environment**: Install the required libraries using pip:
-   ```
-   pip install pybluez
-   ```
-Run the Script: Execute the desired Python script to start interacting with your computer.
+### 4. Upload Code
+1. Connect ESP32 to computer via USB
+2. Select board: `Tools > Board > ESP32 Arduino > ESP32 Dev Module`
+3. Select correct port: `Tools > Port`
+4. Upload the provided code
 
-## Contributing
-Feel free to contribute to the project by opening issues or submitting pull requests. Your feedback and improvements are always welcome!
+## ✋ Supported Gestures
 
-## License
+### 1. Circular Gesture
+- **Movement:** Make smooth circular motions with the board
+- **How to:** Hold board flat and move hand in circles (like stirring)
+- **Detection:** "CLOCKWISE CIRCLE" or "COUNTER-CLOCKWISE" displayed
+
+### 2. Flick Gesture  
+- **Movement:** Quick tilting motions in any direction
+- **How to:** Quickly tilt board forward/backward/left/right and return
+- **Detection:** "FLICK FORWARD", "FLICK BACKWARD", etc. displayed
+
+## 🎮 How to Use
+
+1. **Power On:** Connect ESP32 to power
+2. **Wait for Calibration:** OLED shows "Calibrating" (takes ~1 second)
+3. **Make Gestures:** 
+- For circles: Smooth circular hand motions
+- For flicks: Quick tilt-and-return motions
+4. **View Results:** Detected gestures appear on OLED display
+5. **Cooldown:** Wait ~1 second between gestures
+
+## 📊 Serial Output
+
+The project also outputs debug information to Serial Monitor (115200 baud):
+
+```bash
+MPU6050 connected.
+Gesture: Clockwise Circle
+Gesture: Flick Forward
+```
+
+## 🔧 Code Structure
+
+- `setup()`: Initializes sensors and display
+- `loop()`: Main processing loop (40Hz)
+- `detectCircularGesture()`: Circle pattern recognition
+- `detectFlickGesture()`: Quick motion detection
+- `updateDisplay()`: OLED screen management
+
+## 🤝 Troubleshooting
+
+### Common Issues
+
+1. **OLED not displaying**
+   - Check I2C address (usually 0x3C)
+   - Verify wiring connections
+   - Ensure 3.3V power
+
+2. **MPU6050 not detected**
+   - Check SDA/SCL connections
+   - Verify sensor is working
+   - Check library installation
+
+3. **Gestures not detected**
+   - Make more deliberate motions
+   - Ensure calibration completes
+   - Check serial monitor for errors
+
+### Serial Monitor Messages
+- `"SSD1306 allocation failed"` → OLED connection issue
+- `"MPU6050 connection failed!"` → Sensor connection issue
+- `"Calibrating..."` → Normal startup process
+
+## 📁 Project Files
+
+- `gesture_recognition.ino` - Main Arduino sketch
+- `README.md` - This documentation
+- Connection diagrams
+
+## 🎯 Future Enhancements
+
+- [ ] Add more gesture types
+- [ ] Implement machine learning
+- [ ] Add wireless communication
+- [ ] Create gesture training mode
+- [ ] Add sound feedback
+
+## 📄 License
+
+This project is open source. Feel free to modify and distribute.
+
 This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## Acknowledgments
