@@ -1,0 +1,3 @@
+#include "src/win32-handler.h"
+
+APP_ICON ICON pixelIcon.ico
