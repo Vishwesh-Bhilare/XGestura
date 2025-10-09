@@ -8,7 +8,6 @@
 #define IDM_STOP_RECORD_ACTIONS 202
 #define IDM_PERFORM_ACTIONS     203
 
-
 // linked list and recording related declarations
 typedef struct ActionNode
 {
@@ -21,7 +20,15 @@ extern BOOL gIsRecording;
 extern ActionNode *gpHead;
 extern ActionNode *gpTail;
 
+// global hook declarations for keyboard and mouse
+extern HHOOK gKeyboardHook;
+extern HHOOK gMouseHook;
+
+// recorded target window handle
+extern HWND gRecordedTargetWindow;
+
 // function declarations
 void AddAction(INPUT in);
 void PlayRecordedActions(void);
 void FreeRecordedActions(void);
+void RemoveLastNActions(int n);
