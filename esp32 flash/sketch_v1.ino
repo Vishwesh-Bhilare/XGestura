@@ -134,7 +134,6 @@ void drawTiltDot(float roll, float pitch) {
   int cy = 30;
   int radius = 12;
 
-  display.drawRoundRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 4, SSD1306_WHITE);
   display.drawFastHLine(cx - radius - 6, cy, 2 * (radius + 6), SSD1306_WHITE);
   display.drawFastVLine(cx, cy - radius - 6, 2 * (radius + 6), SSD1306_WHITE);
   display.drawCircle(cx, cy, radius, SSD1306_WHITE);
