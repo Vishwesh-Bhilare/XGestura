@@ -1,0 +1,289 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#include <math.h>
+
+#define SDA_PIN 21
+#define SCL_PIN 22
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define BUFFER_SIZE 20
+
+MPU6050 mpu;
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+struct SensorData {
+  float ax, ay, az;
+  float gx, gy, gz;
+};
+SensorData buffer[BUFFER_SIZE];
+int indexBuffer = 0;
+bool bufferFilled = false;
+
+float restAx = 0, restAy = 0, restAz = 1;
+float rollOffset = 0, pitchOffset = 0;
+float filteredRoll = 0, filteredPitch = 0;
+String currentGesture = "Init";
+int stableFrames = 0;
+
+// ---------------- Utility ----------------
+float computeAverage(float arr[], int n) {
+  float sum = 0;
+  for (int i = 0; i < n; i++) sum += arr[i];
+  return sum / n;
+}
+float computeStdDev(float arr[], int n, float mean) {
+  float s = 0;
+  for (int i = 0; i < n; i++) s += pow(arr[i] - mean, 2);
+  return sqrt(s / n);
+}
+
+// ---------------- Calibration with timeout ----------------
+void calibrateSensor() {
+  Serial.println("Calibrating...");
+  
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(20, 25);
+  display.println("CALIBRATING...");
+  display.display();
+  
+  const int samples = 200;
+  float sumAx = 0, sumAy = 0, sumAz = 0;
+  
+  int collected = 0;
+  unsigned long start = millis();
+  
+  while (collected < samples) {
+    if (millis() - start > 3000) {
+      Serial.println("Calibration timeout - using defaults");
+      break;
+    }
+    
+    sumAx += mpu.getAccelerationX() / 16384.0;
+    sumAy += mpu.getAccelerationY() / 16384.0;
+    sumAz += mpu.getAccelerationZ() / 16384.0;
+    collected++;
+    delay(5);
+  }
+  
+  if (collected > 0) {
+    restAx = sumAx / collected;
+    restAy = sumAy / collected;
+    restAz = sumAz / collected;
+  }
+  
+  rollOffset = atan2(restAy, restAz);
+  pitchOffset = atan2(-restAx, sqrt(restAy * restAy + restAz * restAz));
+  
+  Serial.println("Calibration done");
+}
+
+// ---------------- Data collection ----------------
+void collectData() {
+  SensorData d;
+  d.ax = mpu.getAccelerationX() / 16384.0;
+  d.ay = mpu.getAccelerationY() / 16384.0;
+  d.az = mpu.getAccelerationZ() / 16384.0;
+  d.gx = mpu.getRotationX() / 131.0;
+  d.gy = mpu.getRotationY() / 131.0;
+  d.gz = mpu.getRotationZ() / 131.0;
+  buffer[indexBuffer] = d;
+  indexBuffer = (indexBuffer + 1) % BUFFER_SIZE;
+  if (indexBuffer == 0) bufferFilled = true;
+}
+
+// ---------------- Shake Detection ----------------
+bool detectOscillation(float arr[], int size, float threshold, int requiredFlips) {
+  int signFlips = 0;
+  for (int i = 1; i < size; i++) {
+    if ((arr[i - 1] > threshold && arr[i] < -threshold) ||
+        (arr[i - 1] < -threshold && arr[i] > threshold))
+      signFlips++;
+  }
+  return (signFlips >= requiredFlips);
+}
+
+// ---------------- Gesture Detection ----------------
+String detectGesture(float avgAx, float avgAy, float avgAz,
+                     float avgGx, float avgGy, float avgGz,
+                     float stdGx, float stdGy, float stdGz,
+                     float axArr[], float ayArr[], float azArr[]) {
+
+  float dAx = avgAx - restAx;
+  float dAy = avgAy - restAy;
+  float dAz = avgAz - restAz;
+
+  // Stability detection
+  if (stdGx < 10 && stdGy < 10 && stdGz < 10)
+    stableFrames++;
+  else
+    stableFrames = 0;
+
+  // --- Shake detection (oscillation-based) ---
+  if (detectOscillation(axArr, BUFFER_SIZE, 0.4, 3) ||
+      detectOscillation(ayArr, BUFFER_SIZE, 0.4, 3))
+    return "Shake H";
+  else if (detectOscillation(azArr, BUFFER_SIZE, 0.4, 3))
+    return "Shake V";
+
+  // --- Other gestures ---
+  if (fabs(avgGz) > 40)
+    return (avgGz > 0) ? "Twist CW" : "Twist CCW";
+  else if (dAy > 0.25)
+    return "Forward";
+  else if (dAy < -0.25)
+    return "Backward";
+  else if (fabs(avgAz - restAz) > 0.5)
+    return "Tap";
+  else if (dAx > 0.18)
+    return "Right";
+  else if (dAx < -0.18)
+    return "Left";
+  else if (dAz > 0.15)
+    return "Up";
+  else if (dAz < -0.15)
+    return "Down";
+  else if (stableFrames > 1)
+    return "Stable";
+  else
+    return currentGesture;
+}
+
+// ---------------- Display ----------------
+void drawTiltDot(float roll, float pitch) {
+  int cx = SCREEN_WIDTH / 2;
+  int cy = 30;
+  int radius = 12;
+
+  display.drawFastHLine(cx - radius - 6, cy, 2 * (radius + 6), SSD1306_WHITE);
+  display.drawFastVLine(cx, cy - radius - 6, 2 * (radius + 6), SSD1306_WHITE);
+  display.drawCircle(cx, cy, radius, SSD1306_WHITE);
+
+  int dx = (int)(roll * 57.3 * 0.6);
+  int dy = (int)(pitch * 57.3 * 0.6);
+  dx = constrain(dx, -radius, radius);
+  dy = constrain(dy, -radius, radius);
+  display.fillCircle(cx + dx, cy + dy, 3, SSD1306_WHITE);
+}
+
+void updateDisplay(float avgAx, float avgAy, float avgAz, float roll, float pitch) {
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(2, 0);
+  display.printf("Ax:%+.2f Ay:%+.2f", avgAx, avgAy);
+  
+  display.setCursor(2, 10);
+  display.printf("Az:%+.2f", avgAz);
+
+  drawTiltDot(roll, pitch);
+
+  display.setCursor(5, 52);
+  display.setTextSize(1);
+  display.printf("G:%s", currentGesture.c_str());
+  display.display();
+}
+
+// ---------------- Setup ----------------
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  
+  Serial.println("Starting...");
+  
+  // Initialize OLED
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("OLED FAIL");
+    while (1);
+  }
+  
+  delay(100);
+  
+  // Show BOOT screen
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(30, 25);
+  display.println("BOOT");
+  display.display();
+  delay(1500);
+  
+  // Initialize MPU
+  mpu.initialize();
+  if (!mpu.testConnection()) {
+    Serial.println("MPU FAIL");
+    display.clearDisplay();
+    display.setCursor(10, 25);
+    display.println("MPU ERROR");
+    display.display();
+    while (1);
+  }
+  
+  Serial.println("MPU OK");
+  
+  // Calibrate
+  calibrateSensor();
+  
+  currentGesture = "Ready";
+  
+  // Show ready screen
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(25, 25);
+  display.println("READY!");
+  display.display();
+  delay(1000);
+}
+
+// ---------------- Loop ----------------
+void loop() {
+  collectData();
+  
+  // Show "WAIT" while collecting initial buffer
+  if (!bufferFilled) { 
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(25, 25);
+    display.println("WAIT");
+    display.display();
+    delay(10);
+    return; 
+  }
+
+  float ax[BUFFER_SIZE], ay[BUFFER_SIZE], az[BUFFER_SIZE];
+  float gx[BUFFER_SIZE], gy[BUFFER_SIZE], gz[BUFFER_SIZE];
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    ax[i] = buffer[i].ax; ay[i] = buffer[i].ay; az[i] = buffer[i].az;
+    gx[i] = buffer[i].gx; gy[i] = buffer[i].gy; gz[i] = buffer[i].gz;
+  }
+
+  float avgAx = computeAverage(ax, BUFFER_SIZE);
+  float avgAy = computeAverage(ay, BUFFER_SIZE);
+  float avgAz = computeAverage(az, BUFFER_SIZE);
+  float avgGx = computeAverage(gx, BUFFER_SIZE);
+  float avgGy = computeAverage(gy, BUFFER_SIZE);
+  float avgGz = computeAverage(gz, BUFFER_SIZE);
+  float stdGx = computeStdDev(gx, BUFFER_SIZE, avgGx);
+  float stdGy = computeStdDev(gy, BUFFER_SIZE, avgGy);
+  float stdGz = computeStdDev(gz, BUFFER_SIZE, avgGz);
+
+  currentGesture = detectGesture(avgAx, avgAy, avgAz, avgGx, avgGy, avgGz,
+                                 stdGx, stdGy, stdGz, ax, ay, az);
+
+  float newRoll = atan2(avgAy, avgAz) - rollOffset;
+  float newPitch = atan2(-avgAx, sqrt(avgAy * avgAy + avgAz * avgAz)) - pitchOffset;
+
+  filteredRoll = filteredRoll * 0.7 + newRoll * 0.3;
+  filteredPitch = filteredPitch * 0.7 + newPitch * 0.3;
+
+  updateDisplay(avgAx, avgAy, avgAz, filteredRoll, filteredPitch);
+  
+  Serial.println(currentGesture);
+
+  delay(60);
+}
